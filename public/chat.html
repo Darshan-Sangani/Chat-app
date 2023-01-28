@@ -12,12 +12,19 @@
             margin-top: 20px;
             text-transform: uppercase;
         }
-        #list-title{
+
+        #list-title {
             margin-left: 50px;
             margin-top: 20px;
         }
-        .users{
+
+        .users {
             text-transform: capitalize;
+        }
+
+        #leave-button {
+            margin-top: 510px;
+            margin-left: 70px;
         }
     </style>
 </head>
@@ -43,10 +50,6 @@
         </div>
     </div>
 
-
-    Chat App<br><br>
-
-
     <script id="msg-temp" type="text/html">
         <div class="message">
             <p>
@@ -55,6 +58,7 @@
             </p>
             <p>
                 {{message}}
+                <!-- <h6>{{deliverd}} </h6> -->
             </p>
         </div>
     </script>
@@ -75,6 +79,7 @@
                 <li>{{username}} </li>
             {{/users}}
         </ul>
+        <button id="leave-button">Leave</button>
     </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/3.0.1/mustache.min.js"></script>

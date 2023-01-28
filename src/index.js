@@ -1,74 +1,88 @@
-const path = require('path')
-const express = require('express')
-const http = require('http')
-const socketio = require('socket.io')
-const Filter = require('bad-words')
-const { msgtime, loctime } = require('./utils/timeForMsg')
-const { addUser, removeUser, getUser, getUserInRoom } = require('./utils/users')
+const path = require("path");
+const express = require("express");
+const http = require("http");
+const socketio = require("socket.io");
+const Filter = require("bad-words");
+const { msgtime, loctime } = require("./utils/timeForMsg");
+const {
+  addUser,
+  removeUser,
+  getUser,
+  getUserInRoom,
+} = require("./utils/users");
 
-const app = express()
-const server = http.createServer(app)
-const io = socketio(server)
+const app = express();
+const server = http.createServer(app);
+const io = socketio(server);
 
-const port = process.env.PORT || 3000
-const staticPath = path.join(__dirname, '../public')
+const port = process.env.PORT || 5000;
+const staticPath = path.join(__dirname, "../public");
 
+app.use(express.static(staticPath));
 
-app.use(express.static(staticPath))
+io.on("connection", (socket) => {
+  // console.log('new wedsokect connetion')
 
-io.on('connection', (socket) => {
-    // console.log('new wedsokect connetion')
+  socket.on("join", (options, callback) => {
+    const { error, user } = addUser({ id: socket.id, ...options });
 
-    socket.on('join', (options, callback) => {
+    if (error) {
+      return callback(error);
+    }
 
-        const { error, user } = addUser({ id: socket.id, ...options })
+    socket.join(user.room);
 
-        if (error) {
-            return callback(error)
-        }
+    socket.emit("newMessage", msgtime("Admin", "Welcome!"));
+    socket.broadcast
+      .to(user.room)
+      .emit("newMessage", msgtime("Admin", `${user.username} join the room.`));
 
-        socket.join(user.room)
+    io.to(user.room).emit("roomData", {
+      room: user.room,
+      users: getUserInRoom(user.room),
+    });
+    callback();
+  });
 
-        socket.emit('newMessage', msgtime('Admin', 'Welcome!'))
-        socket.broadcast.to(user.room).emit('newMessage', msgtime('Admin', `${user.username} join the room.`))
+  socket.on("msg", (message, callback) => {
+    const user = getUser(socket.id);
+    const filter = new Filter();
 
-        io.to(user.room).emit('roomData', {
-            room: user.room,
-            users: getUserInRoom(user.room)
-        })
-        callback()
-    })
+    if (filter.isProfane(message)) {
+      return callback("Profanity is not allowed!");
+    }
+    io.to(user.room).emit("newMessage", msgtime(user.username, message));
+    callback();
+  });
 
-    socket.on('msg', (message, callback) => {
-        const user = getUser(socket.id)
-        const filter = new Filter()
+  socket.on("sendLocation", (coords, callback) => {
+    const user = getUser(socket.id);
+    io.to(user.room).emit(
+      "locationMsg",
+      loctime(
+        user.username,
+        `https://google.com/maps?q=${coords.latitude},${coords.longitude}`
+      )
+    );
+    callback();
+  });
 
-        if (filter.isProfane(message)) {
-            return callback('Profanity is not allowed!')
-        }
-        io.to(user.room).emit('newMessage', msgtime(user.username, message))
-        callback()
-    })
+  socket.on("disconnect", () => {
+    const user = removeUser(socket.id);
 
-    socket.on('sendLocation', (coords, callback) => {
-        const user = getUser(socket.id)
-        io.to(user.room).emit('locationMsg', loctime(user.username, `https://google.com/maps?q=${coords.latitude},${coords.longitude}`))
-        callback()
-    })
-
-    socket.on('disconnect', () => {
-        const user = removeUser(socket.id)
-
-        if (user) {
-            io.to(user.room).emit('newMessage', msgtime('Admin', `${user.username} has left .`))
-            io.to(user.room).emit('roomData', {
-                room: user.room,
-                users: getUserInRoom(user.room)
-            })
-        }
-    })
-})
+    if (user) {
+      io.to(user.room).emit(
+        "newMessage",
+        msgtime("Admin", `${user.username} has left .`)
+      );
+      io.to(user.room).emit("roomData", {
+        room: user.room,
+        users: getUserInRoom(user.room),
+      });
+    }
+  });
+});
 
 server.listen(port, () => {
-    console.log(`server listen to the port number ${port}`)
-})
+  console.log(`server listen to the port number ${port}`);
+});
